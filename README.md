@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# B2B Торги — демо-проєкт
 
-## Getting Started
+Демо B2B-платформи аукціонів за мотивами реального ТЗ: багатолотові торги, ставки в реальному часі,
+«ставка на всі лоти», закриття за часовим поясом, закриті торги за запрошенням, адмін-панель з логом і підсумками.
+Компанія та дані вигадані.
 
-First, run the development server:
+**Стек:** Next.js 15 (App Router) · Tailwind 4 · Supabase (Postgres, Auth, Realtime, RLS).
+
+## Як влаштовані торги
+
+Уся логіка ставок — у Postgres (`supabase/migrations/0001_init.sql`), а не в браузері:
+
+- `place_bid` / `place_bulk_bid` блокують торги й лоти (`FOR UPDATE`), тому одночасні ставки не перезаписують одна одну;
+- час перевіряє лише сервер: ставка після закриття відхиляється, навіть якщо в браузері ще йде таймер;
+- «ставка на всі лоти» — одна транзакція: або всі ставки, або жодної;
+- пізня ставка продовжує торги на N хвилин (антиснайпінг);
+- RLS: покупець бачить лише свої ставки, чужі суми й учасників — тільки адмін; змінити собі роль не можна.
+
+Тести логіки (8 груп, зокрема 8 одночасних ставок) запускаються на тимчасовому локальному PostgreSQL:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run db:test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Запуск
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Створіть проєкт на supabase.com, скопіюйте `.env.local.example` у `.env.local` і заповніть ключі.
+2. `npm install`
+3. `npm run db:migrate` — схема в Supabase
+4. `npm run seed` — демо-акаунти й торги (повторний запуск оновлює демо)
+5. `npm run dev` → http://localhost:3000

@@ -1,103 +1,74 @@
-import Image from "next/image";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { getDict } from "@/lib/lang-server";
+import { auctionStatus, formatDateTime, formatMoney, type AuctionStatus } from "@/lib/time";
+import type { Auction } from "@/lib/types";
+import { Countdown, StatusBadge } from "@/components/Countdown";
 
-export default function Home() {
+type Row = Auction & { lots: { start_price: number; current_price: number | null }[] };
+const FILTERS: (AuctionStatus | "all")[] = ["all", "live", "upcoming", "ended"];
+
+export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+  const { q = "", status = "all" } = await searchParams;
+  const { lang, d } = await getDict();
+  const supabase = await createClient();
+  let query = supabase.from("auctions").select("*, lots(start_price, current_price)").order("ends_at", { ascending: true });
+  const num = Number(q.replace(/\D/g, ""));
+  if (q && num) query = query.eq("number", num);
+  const { data } = await query;
+
+  const now = Date.now();
+  const order: Record<AuctionStatus, number> = { live: 0, upcoming: 1, ended: 2 };
+  const rows = ((data ?? []) as Row[])
+    .map((a) => ({ ...a, st: auctionStatus(a, now) }))
+    .filter((a) => status === "all" || a.st === status)
+    .sort((a, b) => order[a.st] - order[b.st]);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div>
+      <div className="mb-5 flex flex-wrap items-end gap-3">
+        <h1 className="mr-auto text-2xl font-bold">{d.currentTenders}</h1>
+        <form className="flex gap-2">
+          <input name="q" defaultValue={q} placeholder={d.searchLot}
+            className="w-56 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" />
+          {status !== "all" && <input type="hidden" name="status" value={status} />}
+        </form>
+        <div className="flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm">
+          {FILTERS.map((f) => (
+            <Link key={f} href={`/?status=${f}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`px-3 py-2 ${f === status ? "bg-slate-900 text-white" : "hover:bg-slate-100"}`}>
+              {d[f]}
+            </Link>
+          ))}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {rows.length === 0 && <p className="rounded-lg bg-white p-8 text-center text-slate-500">{d.noTenders}</p>}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((a) => {
+          const total = a.lots.reduce((s, l) => s + Number(l.current_price ?? l.start_price), 0);
+          return (
+            <Link key={a.id} href={`/auction/${a.id}`}
+              className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow">
+              <div className="mb-2 flex items-center gap-2 text-xs text-slate-500">
+                <span className="font-mono">№ {a.number}</span>
+                <StatusBadge startsAt={a.starts_at} endsAt={a.ends_at} />
+                {a.is_private && <span className="rounded bg-purple-100 px-2 py-0.5 font-semibold text-purple-800">{d.private}</span>}
+              </div>
+              <h2 className="mb-3 line-clamp-2 font-semibold">{a.title}</h2>
+              <dl className="mb-4 grid grid-cols-2 gap-y-1 text-sm">
+                <dt className="text-slate-500">{d.lots}</dt><dd className="text-right">{a.lots.length}</dd>
+                <dt className="text-slate-500">{d.bestPrice}</dt><dd className="text-right font-medium">{formatMoney(total, a.currency, lang)}</dd>
+                <dt className="text-slate-500">{d.closesAt}</dt><dd className="text-right">{formatDateTime(a.ends_at, lang, a.timezone)}</dd>
+              </dl>
+              <div className="mt-auto border-t border-slate-100 pt-3 text-sm">
+                <Countdown startsAt={a.starts_at} endsAt={a.ends_at} />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
